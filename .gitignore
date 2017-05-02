@@ -22,3 +22,8 @@ _testmain.go
 *.exe
 *.test
 *.prof
+/delphiclient/Win32
+/delphiclient/*.dproj
+/delphiclient/*.local
+/delphiclient/*.identcache
+/delphiclient/__history
