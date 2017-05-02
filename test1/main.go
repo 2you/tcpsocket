@@ -10,23 +10,7 @@ import (
 
 var server *tcpsocket.TTcpServer
 
-type tttmmm struct {
-	key interface{}
-}
-
 func main() {
-	m := make(map[string]string)
-	m["1"] = "123"
-	tcpsocket.Debugln(m["1"])
-	m["1"] = "456"
-	tcpsocket.Debugln(m["1"])
-
-	tm := new(tttmmm)
-	tm.key = 123
-	tcpsocket.Debugln(tm.key)
-	tm.key = "123"
-	tcpsocket.Debugln(tm.key)
-
 	wait := make(chan byte)
 	server = tcpsocket.NewServer(11223)
 	server.SetEventClientConnect(onClientConnect)

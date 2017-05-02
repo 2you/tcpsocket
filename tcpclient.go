@@ -2,19 +2,28 @@ package tcpsocket
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func NewClient(conn net.Conn, io IClientIO) *TTcpClient {
+func NewTcpClient(conn net.Conn, io IClientIO) *TTcpClient {
 	p := new(TTcpClient)
 	p.connectTime = time.Now()
 	p.readThreadActive = false
 	p.socket = conn
 	p.io = io
 	return p
+}
+
+func ClientTo(io IClientIO, addr string, port int) *TTcpClient {
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
+		panic(err)
+	}
+	return NewTcpClient(conn, io)
 }
 
 func (obj *TTcpClient) SetEventDataBlockNew(event DataBlockNewEvent) {

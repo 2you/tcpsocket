@@ -78,7 +78,7 @@ func (obj *TTcpServer) accept(listener *net.TCPListener) {
 			//			conn.Write([]byte("hello\n"))
 			//			conn.Close()
 			//			return
-			client := NewClient(conn, obj.eventClientIONew(conn)) //新建客户端对象
+			client := NewTcpClient(conn, obj.eventClientIONew(conn)) //新建客户端对象
 			client.SetEventDataBlockNew(obj.eventDataBlockNew)
 			obj.onClientConnect(client) //如果设置了eventClientConnect将会在此触发
 			client.StartReadThread()
