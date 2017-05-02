@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func NewServer(listenport uint) *TTcpServer {
+func NewTcpServer(listenport uint) *TTcpServer {
 	p := new(TTcpServer)
 	p.listenPort = listenport
 	return p
