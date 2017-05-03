@@ -58,6 +58,37 @@ func (obj *TTcpClient) Close() error {
 	return obj.socket.Close()
 }
 
+func (obj *TTcpClient) WriteA(v []byte, size int) error {
+	return obj.writeA(v, size)
+}
+
+func (obj *TTcpClient) WriteB(v []byte) error {
+	return obj.writeB(v)
+}
+
+func (obj *TTcpClient) writeA(v []byte, size int) error {
+	if v == nil {
+		return fmt.Errorf("发送数据不能为空")
+	}
+
+	if size < 1 {
+		return fmt.Errorf("发送数据长度必须大于0")
+	}
+	n, err := obj.socket.Write(v)
+	if err != nil {
+		return err
+	}
+
+	if n != size {
+		return fmt.Errorf("应发送%d个字节 实际发送%d个字节", size, n)
+	}
+	return nil
+}
+
+func (obj *TTcpClient) writeB(v []byte) error {
+	return obj.writeA(v, len(v))
+}
+
 func (obj *TTcpClient) onConnect() {
 	obj.io.OnConnect(obj)
 }

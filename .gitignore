@@ -27,3 +27,4 @@ _testmain.go
 /delphiclient/*.local
 /delphiclient/*.identcache
 /delphiclient/__history
+/delphiclient/delphiclient.stat
