@@ -74,7 +74,12 @@ func (obj *TTcpClient) writeA(v []byte, size int) error {
 	if size < 1 {
 		return fmt.Errorf("发送数据长度必须大于0")
 	}
-	n, err := obj.socket.Write(v)
+	bufsize := len(v)
+	if bufsize < size {
+		return fmt.Errorf("待发数据长度[%d]小于应发数据长度[%d]", bufsize, size)
+	}
+	wbuf := v[:size]
+	n, err := obj.socket.Write(wbuf)
 	if err != nil {
 		return err
 	}
