@@ -21,22 +21,39 @@ type IDataBlock interface {
 
 //客户端IO事件接口
 type IClientIO interface {
-	OnRecv(client *TTcpClient, data IDataBlock)
-	OnConnect(client *TTcpClient)
-	OnClose(client *TTcpClient, err error)
+	OnRecv(client *ClientSocket, data IDataBlock)
+	OnConnect(client *ClientSocket)
+	OnClose(client *ClientSocket, err error)
+}
+
+type SocketAction interface {
+	OnRecv(client *ClientSocket, data IDataBlock)
+	OnConnect(client *ClientSocket)
+	OnClose(client *ClientSocket, err error)
+}
+
+type ReadMethod struct {
+	HeadSize       int  //数据头长度
+	BodySizeOffSet int  //数据体长度开始位置
+	BodySizeLen    int  //表示数据体长度字节长度
+	LB             byte //
 }
 
 //tcp服务端结构体
-type TTcpServer struct {
+type ServerSocket struct {
 	listenPort         uint               //服务端监听端口
 	eventClientIONew   ClientIONewEvent   //新建客户端IO对象事件
 	eventDataBlockNew  DataBlockNewEvent  //新建数据包对象事件
 	eventClientConnect ClientConnectEvent //客户端连接事件
 	mutex              sync.Mutex
+
+	onClientConnect    ClientConnectEvent
+	onClientDisconnect ClientDisconnectEvent
+	onClientRead       ClientReadEvent
 }
 
 //tcp客户端结构体
-type TTcpClient struct {
+type ClientSocket struct {
 	io                IClientIO
 	eventDataBlockNew DataBlockNewEvent //新建数据包对象事件
 	socket            net.Conn
@@ -44,6 +61,9 @@ type TTcpClient struct {
 	connectTime       time.Time //连接时间
 }
 
-type ClientConnectEvent func(client *TTcpClient)
-type ClientIONewEvent func(conn net.Conn) IClientIO
+type ClientConnectEvent func(client *ClientSocket)
+type ClientIONewEvent func(tcpconn *net.TCPConn) IClientIO
 type DataBlockNewEvent func() IDataBlock
+
+type ClientDisconnectEvent func(client *ClientSocket, err error)
+type ClientReadEvent func(client *ClientSocket, data []byte)

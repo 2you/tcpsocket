@@ -38,30 +38,14 @@ func debugln(v ...interface{}) {
 	fmt.Print(outputLog(`debug`, fmt.Sprintln(v...)))
 }
 
-func Debugln(v ...interface{}) {
-	debugln(v...)
-}
-
 func debugf(f string, v ...interface{}) {
 	fmt.Print(outputLog(`debug`, fmt.Sprintf(f, v...)))
-}
-
-func Debugf(f string, v ...interface{}) {
-	debugf(f, v...)
 }
 
 func errorln(v ...interface{}) {
 	fmt.Print(outputLog(`error`, fmt.Sprintln(v...)))
 }
 
-func Errorln(v ...interface{}) {
-	errorln(v...)
-}
-
 func errorf(f string, v ...interface{}) {
 	fmt.Print(outputLog(`error`, fmt.Sprintf(f, v...)))
-}
-
-func Errorf(f string, v ...interface{}) {
-	errorf(f, v...)
 }

@@ -2,8 +2,7 @@ package main
 
 import (
 	"encoding/binary"
-
-	"git.oschina.net/tigercat/tcfunc"
+	"github.com/2you/gfunc"
 	"github.com/2you/tcpsocket"
 )
 
@@ -110,5 +109,5 @@ func (obj *D1DataBlock) DecodeBase64Body2String() string {
 }
 
 func (obj *D1DataBlock) DecodeBase64Body2Bytes() []byte {
-	return tcfunc.Base64Decode(string(obj.bodyContent))
+	return gfunc.Base64Decode(string(obj.bodyContent))
 }

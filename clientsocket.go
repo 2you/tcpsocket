@@ -9,40 +9,44 @@ import (
 	"time"
 )
 
-func NewTcpClient(conn net.Conn, io IClientIO) *TTcpClient {
-	p := new(TTcpClient)
+func NewClient(tcpconn *net.TCPConn, io IClientIO) *ClientSocket {
+	p := new(ClientSocket)
 	p.connectTime = time.Now()
 	p.readThreadActive = false
-	p.socket = conn
+	p.socket = tcpconn
 	p.io = io
 	return p
 }
 
-func ClientTo(io IClientIO, addr string, port int) *TTcpClient {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
+func ClientTo(io IClientIO, addr string, port int) *ClientSocket {
+	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port));
 	if err != nil {
 		panic(err)
 	}
-	return NewTcpClient(conn, io)
+	tcpconn, err := net.DialTCP("tcp", nil, tcpaddr)
+	if err != nil {
+		panic(err)
+	}
+	return NewClient(tcpconn, io)
 }
 
-func (obj *TTcpClient) SetEventDataBlockNew(event DataBlockNewEvent) {
+func (obj *ClientSocket) SetEventDataBlockNew(event DataBlockNewEvent) {
 	obj.eventDataBlockNew = event
 }
 
-func (obj *TTcpClient) StartReadThread() {
+func (obj *ClientSocket) StartReadThread() {
 	if !obj.readThreadActive {
 		obj.readThreadActive = true
 		go obj.handle()
 	}
 }
 
-func (obj *TTcpClient) RemoteIP() string {
+func (obj *ClientSocket) RemoteIP() string {
 	vAddr := strings.Split(obj.RemoteAddr(), `:`)
 	return vAddr[0]
 }
 
-func (obj *TTcpClient) RemotePort() int {
+func (obj *ClientSocket) RemotePort() int {
 	vAddr := strings.Split(obj.RemoteAddr(), `:`)
 	if port, err := strconv.Atoi(vAddr[1]); err == nil {
 		return port
@@ -50,23 +54,23 @@ func (obj *TTcpClient) RemotePort() int {
 	return 0
 }
 
-func (obj *TTcpClient) RemoteAddr() string {
+func (obj *ClientSocket) RemoteAddr() string {
 	return obj.socket.RemoteAddr().String()
 }
 
-func (obj *TTcpClient) Close() error {
+func (obj *ClientSocket) Close() error {
 	return obj.socket.Close()
 }
 
-func (obj *TTcpClient) WriteA(v []byte, size int) error {
+func (obj *ClientSocket) WriteA(v []byte, size int) error {
 	return obj.writeA(v, size)
 }
 
-func (obj *TTcpClient) WriteB(v []byte) error {
+func (obj *ClientSocket) WriteB(v []byte) error {
 	return obj.writeB(v)
 }
 
-func (obj *TTcpClient) writeA(v []byte, size int) error {
+func (obj *ClientSocket) writeA(v []byte, size int) error {
 	if v == nil {
 		return fmt.Errorf("发送数据不能为空")
 	}
@@ -90,26 +94,26 @@ func (obj *TTcpClient) writeA(v []byte, size int) error {
 	return nil
 }
 
-func (obj *TTcpClient) writeB(v []byte) error {
+func (obj *ClientSocket) writeB(v []byte) error {
 	return obj.writeA(v, len(v))
 }
 
-func (obj *TTcpClient) onConnect() {
+func (obj *ClientSocket) onConnect() {
 	obj.io.OnConnect(obj)
 }
 
-func (obj *TTcpClient) onClose(err error) {
+func (obj *ClientSocket) onClose(err error) {
 	obj.io.OnClose(obj, err)
 }
 
-func (obj *TTcpClient) onRecv(data IDataBlock) {
+func (obj *ClientSocket) onRecv(data IDataBlock) {
 	defer func() {
 
 	}()
 	obj.io.OnRecv(obj, data)
 }
 
-func (obj *TTcpClient) handle() {
+func (obj *ClientSocket) handle() {
 	var (
 		err   error = nil
 		vRead IDataBlock
@@ -118,15 +122,15 @@ func (obj *TTcpClient) handle() {
 	go obj.onConnect()
 	for {
 		if vRead, err = obj.recvData(); err != nil {
-			Errorln(err.Error())
+			errorln(err.Error())
 			break
 		}
-		Debugf("<%s>数据包体长度为%d\n", obj.RemoteAddr(), vRead.BodySize())
+		debugf("<%s>数据包体长度为%d\n", obj.RemoteAddr(), vRead.BodySize())
 		go obj.onRecv(vRead)
 	}
 }
 
-func (obj *TTcpClient) recvData() (data IDataBlock, err error) {
+func (obj *ClientSocket) recvData() (data IDataBlock, err error) {
 	data = obj.eventDataBlockNew()
 	if err = obj.recvHead(data); err != nil {
 		return nil, err
@@ -138,7 +142,7 @@ func (obj *TTcpClient) recvData() (data IDataBlock, err error) {
 	return data, nil
 }
 
-func (obj *TTcpClient) recvBody(data IDataBlock) error {
+func (obj *ClientSocket) recvBody(data IDataBlock) error {
 	var (
 		vBuf []byte
 		vErr error
@@ -154,7 +158,7 @@ func (obj *TTcpClient) recvBody(data IDataBlock) error {
 	return nil
 }
 
-func (obj *TTcpClient) recvHead(data IDataBlock) error {
+func (obj *ClientSocket) recvHead(data IDataBlock) error {
 	var (
 		vBuf []byte
 		vErr error
@@ -167,7 +171,7 @@ func (obj *TTcpClient) recvHead(data IDataBlock) error {
 	return nil
 }
 
-func (obj *TTcpClient) recvBuf(count int) ([]byte, error) {
+func (obj *ClientSocket) recvBuf(count int) ([]byte, error) {
 	var (
 		vRet               []byte
 		nAllRead, nCurRead int

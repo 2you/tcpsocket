@@ -6,13 +6,13 @@ import (
 	"net"
 )
 
-func NewTcpServer(listenport uint) *TTcpServer {
-	p := new(TTcpServer)
+func NewServer(listenport uint) *ServerSocket {
+	p := new(ServerSocket)
 	p.listenPort = listenport
 	return p
 }
 
-func (obj *TTcpServer) Open() error {
+func (obj *ServerSocket) Open() error {
 	var (
 		vErr     error
 		pTcpAddr *net.TCPAddr
@@ -26,7 +26,7 @@ func (obj *TTcpServer) Open() error {
 		return errors.New("未设置新建数据包对象事件")
 	}
 	sPort = fmt.Sprintf(":%d", obj.listenPort)
-	Debugln(`socket server listen port is`, obj.listenPort)
+	debugln(`socket server listen port is`, obj.listenPort)
 	if pTcpAddr, vErr = net.ResolveTCPAddr("tcp4", sPort); vErr != nil { //获取一个tcpAddr
 		return vErr
 	}
@@ -37,48 +37,45 @@ func (obj *TTcpServer) Open() error {
 	return nil
 }
 
-func (obj *TTcpServer) SetEventClientConnect(event ClientConnectEvent) {
+func (obj *ServerSocket) SetEventClientConnect(event ClientConnectEvent) {
 	obj.eventClientConnect = event
 }
 
-func (obj *TTcpServer) SetEventClientIONew(event ClientIONewEvent) {
+func (obj *ServerSocket) SetEventClientIONew(event ClientIONewEvent) {
 	obj.eventClientIONew = event
 }
 
-func (obj *TTcpServer) SetEventDataBlockNew(event DataBlockNewEvent) {
+func (obj *ServerSocket) SetEventDataBlockNew(event DataBlockNewEvent) {
 	obj.eventDataBlockNew = event
 }
 
-func (obj *TTcpServer) lock() {
+func (obj *ServerSocket) lock() {
 	obj.mutex.Lock()
 }
 
-func (obj *TTcpServer) unlock() {
+func (obj *ServerSocket) unlock() {
 	obj.mutex.Unlock()
 }
 
-func (obj *TTcpServer) onClientConnect(client *TTcpClient) {
+func (obj *ServerSocket) onClientConnect(client *ClientSocket) {
 	if obj.eventClientConnect == nil {
 		return
 	}
 	obj.eventClientConnect(client)
 }
 
-func (obj *TTcpServer) accept(listener *net.TCPListener) {
+func (obj *ServerSocket) accept(listener *net.TCPListener) {
 	for {
-		conn, err := listener.Accept()
+		tcpconn, err := listener.AcceptTCP()
 		if err != nil {
-			Errorf("accept error is %s\n", err.Error())
+			errorf("accept error is %s\n", err.Error())
 			continue
 		}
 
 		func() {
 			obj.lock()
 			defer obj.unlock()
-			//			conn.Write([]byte("hello\n"))
-			//			conn.Close()
-			//			return
-			client := NewTcpClient(conn, obj.eventClientIONew(conn)) //新建客户端对象
+			client := NewClient(tcpconn, obj.eventClientIONew(tcpconn)) //新建客户端对象
 			client.SetEventDataBlockNew(obj.eventDataBlockNew)
 			obj.onClientConnect(client) //如果设置了eventClientConnect将会在此触发
 			client.StartReadThread()

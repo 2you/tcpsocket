@@ -28,3 +28,4 @@ _testmain.go
 /delphiclient/*.identcache
 /delphiclient/__history
 /delphiclient/delphiclient.stat
+.idea

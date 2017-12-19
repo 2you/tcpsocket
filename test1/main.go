@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"github.com/2you/tcpsocket"
+	"log"
 )
 
-var server *tcpsocket.TTcpServer
+var server *tcpsocket.ServerSocket
+var logger log.Logger
 
 func main() {
 	wait := make(chan byte)
-	server = tcpsocket.NewServer(11223)
+	server = tcpsocket.NewServer(12345)
 	server.SetEventClientConnect(onClientConnect)
 	server.SetEventClientIONew(NewD1ClientIO)
 	server.SetEventDataBlockNew(NewD1DataBlock)
@@ -24,7 +26,7 @@ func main() {
 	<-wait
 }
 
-func onClientConnect(client *tcpsocket.TTcpClient) {
+func onClientConnect(client *tcpsocket.ClientSocket) {
 
 }
 
@@ -35,26 +37,26 @@ type D1ClientIO struct {
 	tcpsocket.IClientIO
 }
 
-func NewD1ClientIO(conn net.Conn) tcpsocket.IClientIO {
+func NewD1ClientIO(tcpconn *net.TCPConn) tcpsocket.IClientIO {
 	p := new(D1ClientIO)
-	p.conn = conn
+	p.conn = tcpconn
 	return p
 }
 
-func (obj *D1ClientIO) OnRecv(client *tcpsocket.TTcpClient, data tcpsocket.IDataBlock) {
+func (obj *D1ClientIO) OnRecv(client *tcpsocket.ClientSocket, data tcpsocket.IDataBlock) {
 	str := string(data.BodyContent())
-	tcpsocket.Debugf("<%s>read[%s]\n", client.RemoteAddr(), str)
+	log.Printf("<%s>read[%s]\n", client.RemoteAddr(), str)
 	if str == `12345` {
-		tcpsocket.Debugf("<%s>准备阻塞\n", client.RemoteAddr())
+		log.Printf("<%s>准备阻塞\n", client.RemoteAddr())
 		time.Sleep(8 * time.Second)
-		tcpsocket.Debugf("<%s>退出阻塞\n", client.RemoteAddr())
+		log.Printf("<%s>退出阻塞\n", client.RemoteAddr())
 	}
 }
 
-func (obj *D1ClientIO) OnConnect(client *tcpsocket.TTcpClient) {
-	tcpsocket.Debugf("<%s>连接完成\n", client.RemoteAddr())
+func (obj *D1ClientIO) OnConnect(client *tcpsocket.ClientSocket) {
+	log.Printf("<%s>连接完成\n", client.RemoteAddr())
 }
 
-func (obj *D1ClientIO) OnClose(client *tcpsocket.TTcpClient, err error) {
-	tcpsocket.Debugf("<%s>断开连接\n", client.RemoteAddr())
+func (obj *D1ClientIO) OnClose(client *tcpsocket.ClientSocket, err error) {
+	log.Printf("<%s>断开连接\n", client.RemoteAddr())
 }
