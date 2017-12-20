@@ -27,9 +27,9 @@ type IClientIO interface {
 }
 
 type SocketAction interface {
-	OnRecv(client *ClientSocket, data IDataBlock)
+	OnRead(client *ClientSocket, data []byte)
 	OnConnect(client *ClientSocket)
-	OnClose(client *ClientSocket, err error)
+	OnDisconnect(client *ClientSocket, err error)
 }
 
 type ReadMethod struct {
@@ -41,7 +41,9 @@ type ReadMethod struct {
 
 //tcp服务端结构体
 type ServerSocket struct {
-	listenPort         uint               //服务端监听端口
+	port   uint //服务端监听端口
+	action SocketAction
+
 	eventClientIONew   ClientIONewEvent   //新建客户端IO对象事件
 	eventDataBlockNew  DataBlockNewEvent  //新建数据包对象事件
 	eventClientConnect ClientConnectEvent //客户端连接事件
@@ -54,11 +56,21 @@ type ServerSocket struct {
 
 //tcp客户端结构体
 type ClientSocket struct {
+	active bool
+	action SocketAction
+	host   string
+	port   uint
+	svrclt bool
+	socket *net.TCPConn
+
 	io                IClientIO
 	eventDataBlockNew DataBlockNewEvent //新建数据包对象事件
-	socket            net.Conn
 	readThreadActive  bool
 	connectTime       time.Time //连接时间
+
+	onConnect    ClientConnectEvent
+	onDisconnect ClientDisconnectEvent
+	onRead       ClientReadEvent
 }
 
 type ClientConnectEvent func(client *ClientSocket)

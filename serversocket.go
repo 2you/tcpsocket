@@ -6,10 +6,17 @@ import (
 	"net"
 )
 
-func NewServer(listenport uint) *ServerSocket {
+func NewServer() *ServerSocket {
 	p := new(ServerSocket)
-	p.listenPort = listenport
 	return p
+}
+
+func (this *ServerSocket) SetPort(port uint) {
+	this.port = port
+}
+
+func (this *ServerSocket) SetAction(act SocketAction) {
+	this.action = act
 }
 
 func (obj *ServerSocket) Open() error {
@@ -25,8 +32,8 @@ func (obj *ServerSocket) Open() error {
 	if obj.eventDataBlockNew == nil {
 		return errors.New("未设置新建数据包对象事件")
 	}
-	sPort = fmt.Sprintf(":%d", obj.listenPort)
-	debugln(`socket server listen port is`, obj.listenPort)
+	sPort = fmt.Sprintf(":%d", obj.port)
+	debugln(`socket server listen port is`, obj.port)
 	if pTcpAddr, vErr = net.ResolveTCPAddr("tcp4", sPort); vErr != nil { //获取一个tcpAddr
 		return vErr
 	}
@@ -57,14 +64,14 @@ func (obj *ServerSocket) unlock() {
 	obj.mutex.Unlock()
 }
 
-func (obj *ServerSocket) onClientConnect(client *ClientSocket) {
+func (obj *ServerSocket) handleOnClientConnect(client *ClientSocket) {
 	if obj.eventClientConnect == nil {
 		return
 	}
 	obj.eventClientConnect(client)
 }
 
-func (obj *ServerSocket) accept(listener *net.TCPListener) {
+func (this *ServerSocket) accept(listener *net.TCPListener) {
 	for {
 		tcpconn, err := listener.AcceptTCP()
 		if err != nil {
@@ -73,12 +80,10 @@ func (obj *ServerSocket) accept(listener *net.TCPListener) {
 		}
 
 		func() {
-			obj.lock()
-			defer obj.unlock()
-			client := NewClient(tcpconn, obj.eventClientIONew(tcpconn)) //新建客户端对象
-			client.SetEventDataBlockNew(obj.eventDataBlockNew)
-			obj.onClientConnect(client) //如果设置了eventClientConnect将会在此触发
-			client.StartReadThread()
+			this.lock()
+			defer this.unlock()
+			client := NewClient() //新建客户端对象
+			client.accept(tcpconn, this.action)
 		}()
 	}
 }

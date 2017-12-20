@@ -9,36 +9,79 @@ import (
 	"time"
 )
 
-func NewClient(tcpconn *net.TCPConn, io IClientIO) *ClientSocket {
+func NewClient() *ClientSocket {
 	p := new(ClientSocket)
-	p.connectTime = time.Now()
+	p.active = false
+	p.svrclt = false
 	p.readThreadActive = false
-	p.socket = tcpconn
-	p.io = io
 	return p
 }
 
-func ClientTo(io IClientIO, addr string, port int) *ClientSocket {
-	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port));
+//func ClientTo(io IClientIO, addr string, port int) *ClientSocket {
+//	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
+//	if err != nil {
+//		panic(err)
+//	}
+//	tcpconn, err := net.DialTCP("tcp", nil, tcpaddr)
+//	if err != nil {
+//		panic(err)
+//	}
+//	return NewClient(tcpconn, io)
+//}
+
+func (this *ClientSocket) SetAction(act SocketAction) {
+	this.action = act
+}
+
+func (this *ClientSocket) SetHost(host string) {
+	this.host = host
+}
+
+func (this *ClientSocket) SetPort(port uint) {
+	this.port = port
+}
+
+func (this *ClientSocket) accept(tcpconn *net.TCPConn, act SocketAction) error {
+	this.svrclt = true
+	return this.open(tcpconn, act)
+}
+
+func (this *ClientSocket) open(tcpconn *net.TCPConn, act SocketAction) error {
+	this.action = act
+	this.socket = tcpconn
+	this.active = true
+	this.connectTime = time.Now()
+	this.startReadThread()
+	return nil
+}
+
+func (this *ClientSocket) Open() error {
+	if this.svrclt {
+		return fmt.Errorf("server accept client can not open")
+	}
+
+	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", this.host, this.port))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	tcpconn, err := net.DialTCP("tcp", nil, tcpaddr)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return NewClient(tcpconn, io)
+	return this.open(tcpconn, this.action)
+}
+
+func (this *ClientSocket) Close() error {
+
+	return this.socket.Close()
 }
 
 func (obj *ClientSocket) SetEventDataBlockNew(event DataBlockNewEvent) {
 	obj.eventDataBlockNew = event
 }
 
-func (obj *ClientSocket) StartReadThread() {
-	if !obj.readThreadActive {
-		obj.readThreadActive = true
-		go obj.handle()
-	}
+func (this *ClientSocket) startReadThread() {
+	go this.handleRead()
 }
 
 func (obj *ClientSocket) RemoteIP() string {
@@ -98,7 +141,7 @@ func (obj *ClientSocket) writeB(v []byte) error {
 	return obj.writeA(v, len(v))
 }
 
-func (obj *ClientSocket) onConnect() {
+func (obj *ClientSocket) handleOnConnect() {
 	obj.io.OnConnect(obj)
 }
 
@@ -113,13 +156,13 @@ func (obj *ClientSocket) onRecv(data IDataBlock) {
 	obj.io.OnRecv(obj, data)
 }
 
-func (obj *ClientSocket) handle() {
+func (obj *ClientSocket) handleRead() {
 	var (
 		err   error = nil
 		vRead IDataBlock
 	)
 	defer obj.onClose(err)
-	go obj.onConnect()
+	go obj.handleOnConnect()
 	for {
 		if vRead, err = obj.recvData(); err != nil {
 			errorln(err.Error())
