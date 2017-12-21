@@ -1,7 +1,6 @@
 package tcpsocket
 
 import (
-	"errors"
 	"fmt"
 	"net"
 )
@@ -19,41 +18,22 @@ func (this *ServerSocket) SetAction(act SocketAction) {
 	this.action = act
 }
 
-func (obj *ServerSocket) Open() error {
+func (this *ServerSocket) Open() error {
 	var (
-		vErr     error
-		pTcpAddr *net.TCPAddr
-		pListen  *net.TCPListener
-		sPort    string
+		err         error
+		tcpAddr     *net.TCPAddr
+		tcpListener *net.TCPListener
 	)
-	if obj.eventClientIONew == nil {
-		return errors.New("未设置新建客户端IO对象事件")
+	sPort := fmt.Sprintf(":%d", this.port)
+	debugln(`socket server listen port is`, this.port)
+	if tcpAddr, err = net.ResolveTCPAddr("tcp4", sPort); err != nil { //获取一个tcpAddr
+		return err
 	}
-	if obj.eventDataBlockNew == nil {
-		return errors.New("未设置新建数据包对象事件")
+	if tcpListener, err = net.ListenTCP("tcp", tcpAddr); err != nil {
+		return err
 	}
-	sPort = fmt.Sprintf(":%d", obj.port)
-	debugln(`socket server listen port is`, obj.port)
-	if pTcpAddr, vErr = net.ResolveTCPAddr("tcp4", sPort); vErr != nil { //获取一个tcpAddr
-		return vErr
-	}
-	if pListen, vErr = net.ListenTCP("tcp", pTcpAddr); vErr != nil {
-		return vErr
-	}
-	go obj.accept(pListen)
+	go this.accept(tcpListener)
 	return nil
-}
-
-func (obj *ServerSocket) SetEventClientConnect(event ClientConnectEvent) {
-	obj.eventClientConnect = event
-}
-
-func (obj *ServerSocket) SetEventClientIONew(event ClientIONewEvent) {
-	obj.eventClientIONew = event
-}
-
-func (obj *ServerSocket) SetEventDataBlockNew(event DataBlockNewEvent) {
-	obj.eventDataBlockNew = event
 }
 
 func (obj *ServerSocket) lock() {
@@ -62,13 +42,6 @@ func (obj *ServerSocket) lock() {
 
 func (obj *ServerSocket) unlock() {
 	obj.mutex.Unlock()
-}
-
-func (obj *ServerSocket) handleOnClientConnect(client *ClientSocket) {
-	if obj.eventClientConnect == nil {
-		return
-	}
-	obj.eventClientConnect(client)
 }
 
 func (this *ServerSocket) accept(listener *net.TCPListener) {

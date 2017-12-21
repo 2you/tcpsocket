@@ -1,6 +1,8 @@
 package tcpsocket
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -17,17 +19,16 @@ func NewClient() *ClientSocket {
 	return p
 }
 
-//func ClientTo(io IClientIO, addr string, port int) *ClientSocket {
-//	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
-//	if err != nil {
-//		panic(err)
-//	}
-//	tcpconn, err := net.DialTCP("tcp", nil, tcpaddr)
-//	if err != nil {
-//		panic(err)
-//	}
-//	return NewClient(tcpconn, io)
-//}
+func ClientTo(host string, port uint, action SocketAction) (client *ClientSocket, err error) {
+	client = NewClient()
+	client.SetHost(host)
+	client.SetPort(port)
+	client.SetAction(action)
+	if err = client.Open(); err != nil {
+		return nil, err
+	}
+	return client, nil
+}
 
 func (this *ClientSocket) SetAction(act SocketAction) {
 	this.action = act
@@ -71,165 +72,196 @@ func (this *ClientSocket) Open() error {
 	return this.open(tcpconn, this.action)
 }
 
-func (this *ClientSocket) Close() error {
-
-	return this.socket.Close()
+func (this *ClientSocket) close() error {
+	if err := this.socket.Close(); err != nil {
+		return err
+	}
+	this.stopReadThread()
+	return nil
 }
 
-func (obj *ClientSocket) SetEventDataBlockNew(event DataBlockNewEvent) {
-	obj.eventDataBlockNew = event
+func (this *ClientSocket) Close() error {
+	return this.close()
 }
 
 func (this *ClientSocket) startReadThread() {
-	go this.handleRead()
+	if this.readThreadActive {
+		return
+	}
+	this.readThreadActive = true
+	go this.threadHandleRead()
 }
 
-func (obj *ClientSocket) RemoteIP() string {
-	vAddr := strings.Split(obj.RemoteAddr(), `:`)
-	return vAddr[0]
+func (this *ClientSocket) stopReadThread() {
+	this.readThreadActive = false
 }
 
-func (obj *ClientSocket) RemotePort() int {
-	vAddr := strings.Split(obj.RemoteAddr(), `:`)
-	if port, err := strconv.Atoi(vAddr[1]); err == nil {
+func (this *ClientSocket) readBuf(count uint64) (buf []byte, err error) {
+	var (
+		allSize  uint64
+		currSize int
+	)
+	if count < 1 {
+		return nil, nil
+	}
+	buf = make([]byte, count)
+	allSize = 0
+	for allSize < count {
+		if currSize, err = this.socket.Read(buf[allSize:count]); err != nil {
+			return nil, err
+		}
+		allSize += uint64(currSize)
+	}
+	return buf, nil
+}
+
+func (this *ClientSocket) readHead() (buf []byte, err error) {
+	headSize := uint64(this.action.GetHeadSize())
+	return this.readBuf(headSize)
+}
+
+func (this *ClientSocket) getBodySize(headBuf []byte) (size uint64, err error) {
+	headSize := this.action.GetHeadSize()
+	if headSize != len(headBuf) {
+		return 0, fmt.Errorf("head buf size if error")
+	}
+	lob := this.action.LittleOrBig()
+	iBit := this.action.GetBodySizeLength()
+	offSet := this.action.GetBodySizeOffSet()
+	sizeBuf := headBuf[offSet:]
+	var bodySize uint64
+	if lob == 'L' {
+		switch iBit {
+		case 2:
+			bodySize = uint64(binary.LittleEndian.Uint16(sizeBuf))
+		case 4:
+			bodySize = uint64(binary.LittleEndian.Uint32(sizeBuf))
+		case 8:
+			bodySize = uint64(binary.LittleEndian.Uint64(sizeBuf))
+		default:
+			return 0, fmt.Errorf("body size bit error")
+		}
+
+	} else if lob == 'B' {
+		switch iBit {
+		case 2:
+			bodySize = uint64(binary.BigEndian.Uint16(sizeBuf))
+		case 4:
+			bodySize = uint64(binary.BigEndian.Uint32(sizeBuf))
+		case 8:
+			bodySize = uint64(binary.BigEndian.Uint64(sizeBuf))
+		default:
+			return 0, fmt.Errorf("body size bit error")
+		}
+	} else {
+		return 0, errors.New("body size parse method error")
+	}
+	return bodySize, nil
+}
+
+func (this *ClientSocket) readBody(headBuf []byte) (buf []byte, err error) {
+	bodySize, err := this.getBodySize(headBuf)
+	if err != nil {
+		return nil, err
+	}
+	return this.readBuf(bodySize)
+}
+
+func BytesCombine(pBytes ...[]byte) []byte {
+	return bytes.Join(pBytes, []byte(""))
+}
+
+func (this *ClientSocket) readData() (buf []byte, err error) {
+	if buf, err = this.readHead(); err != nil {
+		return nil, err
+	}
+	headBuf := buf
+	if buf, err = this.readBody(headBuf); err != nil {
+		return nil, err
+	}
+
+	if buf == nil {
+		return headBuf, nil
+	} else {
+		return func(v ...[]byte) []byte {
+			return bytes.Join(v, []byte(``))
+		}(headBuf, buf), nil
+	}
+}
+
+func (this *ClientSocket) handleOnConnect() {
+	go this.action.OnConnect(this)
+}
+
+func (this *ClientSocket) handleOnDisconnect(err error) {
+	this.Close()
+	this.action.OnDisconnect(this, err)
+}
+
+func (this *ClientSocket) handleOnRead(data []byte) {
+	go this.action.OnRead(this, data)
+}
+
+func (this *ClientSocket) threadHandleRead() {
+	var (
+		err  error = nil
+		data []byte
+	)
+	defer this.handleOnDisconnect(err)
+	this.handleOnConnect()
+	for {
+		if data, err = this.readData(); err != nil {
+			break
+		}
+		this.handleOnRead(data)
+	}
+}
+
+func (this *ClientSocket) RemoteIP() string {
+	arrAddr := strings.Split(this.RemoteAddr(), `:`)
+	return arrAddr[0]
+}
+
+func (this *ClientSocket) RemotePort() int {
+	arrAddr := strings.Split(this.RemoteAddr(), `:`)
+	if port, err := strconv.Atoi(arrAddr[1]); err == nil {
 		return port
 	}
 	return 0
 }
 
-func (obj *ClientSocket) RemoteAddr() string {
-	return obj.socket.RemoteAddr().String()
+func (this *ClientSocket) RemoteAddr() string {
+	return this.socket.RemoteAddr().String()
 }
 
-func (obj *ClientSocket) Close() error {
-	return obj.socket.Close()
+func (this *ClientSocket) Write(buf []byte, size int) error {
+	return this.write(buf, size)
 }
 
-func (obj *ClientSocket) WriteA(v []byte, size int) error {
-	return obj.writeA(v, size)
+func (this *ClientSocket) WriteBuf(buf []byte) error {
+	return this.write(buf, len(buf))
 }
 
-func (obj *ClientSocket) WriteB(v []byte) error {
-	return obj.writeB(v)
-}
-
-func (obj *ClientSocket) writeA(v []byte, size int) error {
-	if v == nil {
-		return fmt.Errorf("发送数据不能为空")
+func (this *ClientSocket) write(buf []byte, size int) error {
+	if buf == nil {
+		return fmt.Errorf("write buf can not null")
 	}
 
 	if size < 1 {
-		return fmt.Errorf("发送数据长度必须大于0")
+		return fmt.Errorf("write buf size can not less than 1")
 	}
-	bufsize := len(v)
-	if bufsize < size {
-		return fmt.Errorf("待发数据长度[%d]小于应发数据长度[%d]", bufsize, size)
+	bufSize := len(buf)
+	if bufSize < size {
+		return fmt.Errorf("pending write size %d less than actual size %d", bufSize, size)
 	}
-	wbuf := v[:size]
-	n, err := obj.socket.Write(wbuf)
+	wBuf := buf[:size]
+	wSize, err := this.socket.Write(wBuf)
 	if err != nil {
 		return err
 	}
 
-	if n != size {
-		return fmt.Errorf("应发送%d个字节 实际发送%d个字节", size, n)
+	if wSize != size {
+		return fmt.Errorf("pending write %d bytes, actual write %d bytes", size, wSize)
 	}
 	return nil
-}
-
-func (obj *ClientSocket) writeB(v []byte) error {
-	return obj.writeA(v, len(v))
-}
-
-func (obj *ClientSocket) handleOnConnect() {
-	obj.io.OnConnect(obj)
-}
-
-func (obj *ClientSocket) onClose(err error) {
-	obj.io.OnClose(obj, err)
-}
-
-func (obj *ClientSocket) onRecv(data IDataBlock) {
-	defer func() {
-
-	}()
-	obj.io.OnRecv(obj, data)
-}
-
-func (obj *ClientSocket) handleRead() {
-	var (
-		err   error = nil
-		vRead IDataBlock
-	)
-	defer obj.onClose(err)
-	go obj.handleOnConnect()
-	for {
-		if vRead, err = obj.recvData(); err != nil {
-			errorln(err.Error())
-			break
-		}
-		debugf("<%s>数据包体长度为%d\n", obj.RemoteAddr(), vRead.BodySize())
-		go obj.onRecv(vRead)
-	}
-}
-
-func (obj *ClientSocket) recvData() (data IDataBlock, err error) {
-	data = obj.eventDataBlockNew()
-	if err = obj.recvHead(data); err != nil {
-		return nil, err
-	}
-
-	if err = obj.recvBody(data); err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (obj *ClientSocket) recvBody(data IDataBlock) error {
-	var (
-		vBuf []byte
-		vErr error
-	)
-	nBodySize := data.BodySize()
-	if nBodySize < 1 {
-		return nil
-	}
-	if vBuf, vErr = obj.recvBuf(nBodySize); vErr != nil {
-		return vErr
-	}
-	data.SetBodyContent(vBuf)
-	return nil
-}
-
-func (obj *ClientSocket) recvHead(data IDataBlock) error {
-	var (
-		vBuf []byte
-		vErr error
-	)
-	nHeadSize := data.HeadSize()
-	if vBuf, vErr = obj.recvBuf(nHeadSize); vErr != nil {
-		return vErr
-	}
-	data.SetHeadContent(vBuf)
-	return nil
-}
-
-func (obj *ClientSocket) recvBuf(count int) ([]byte, error) {
-	var (
-		vRet               []byte
-		nAllRead, nCurRead int
-		vErr               error
-	)
-	if count < 1 {
-		return nil, errors.New(`read count less than 1`)
-	}
-	vRet = make([]byte, count)
-	nAllRead = 0
-	for nAllRead < count {
-		if nCurRead, vErr = obj.socket.Read(vRet[nAllRead:count]); vErr != nil {
-			return nil, vErr
-		}
-		nAllRead += nCurRead
-	}
-	return vRet, nil
 }
