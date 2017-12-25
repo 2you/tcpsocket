@@ -186,7 +186,7 @@ func (this *ClientSocket) readData() (buf []byte, err error) {
 		return headBuf, nil
 	} else {
 		buf = func(v ...[]byte) []byte {
-			return bytes.Join(v, []byte(``))
+			return bytes.Join(v, nil)
 		}(headBuf, bodyBuf)
 
 		headBuf = nil
