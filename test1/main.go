@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"runtime"
-	"sync"
 
 	"github.com/2you/tcpsocket"
 )
