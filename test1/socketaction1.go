@@ -38,9 +38,9 @@ func (this *SocketActionA) OnRead(client *tcpsocket.ClientSocket, data []byte) {
 	log.Printf("[%s] read bytes %d >>> body size %d\n", rmAddr, size, bodySize)
 	err := client.Write(data, size)
 	if err == nil {
-		log.Printf("write %d bytes to [%s] succ", size, rmAddr)
+		log.Printf("write %d bytes to [%s] succ\n", size, rmAddr)
 	} else {
-		log.Printf("write %d bytes to [%s] error [%s]", size, rmAddr, err.Error())
+		log.Printf("write %d bytes to [%s] error [%s]\n", size, rmAddr, err.Error())
 	}
 	data = nil
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 
 	"github.com/2you/tcpsocket"
@@ -18,6 +20,10 @@ func main() {
 		buf1[i] = byte(i + 1)
 	}
 	log.Println(buf1[4:5])
+
+	go func() {
+		http.ListenAndServe(":12346", nil)
+	}()
 
 	wait := make(chan byte)
 	server = tcpsocket.NewServer()

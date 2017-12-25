@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -16,6 +17,7 @@ func NewClient() *ClientSocket {
 	p.active = false
 	p.svrclt = false
 	p.readThreadActive = false
+	p.readThreadCount = 0
 	return p
 }
 
@@ -205,7 +207,11 @@ func (this *ClientSocket) handleOnDisconnect(err error) {
 }
 
 func (this *ClientSocket) handleOnRead(data []byte) {
-	go this.action.OnRead(this, data)
+	go func() {
+		atomic.AddInt32(&this.readThreadCount, 1)
+		this.action.OnRead(this, data)
+		atomic.AddInt32(&this.readThreadCount, -1)
+	}()
 }
 
 func (this *ClientSocket) threadHandleRead() {
@@ -216,6 +222,12 @@ func (this *ClientSocket) threadHandleRead() {
 	defer this.handleOnDisconnect(err)
 	this.handleOnConnect()
 	for {
+		if atomic.LoadInt32(&this.readThreadCount) > 3 {
+			debugf("[%s] on read thread count more thand 3\n", this.RemoteAddr())
+			time.Sleep(time.Second * 3)
+			continue
+		}
+
 		if data, err = this.readData(); err != nil {
 			break
 		}

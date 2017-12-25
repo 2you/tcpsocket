@@ -35,4 +35,5 @@ type ClientSocket struct {
 	socket           *net.TCPConn
 	readThreadActive bool
 	connectTime      time.Time //连接时间
+	readThreadCount  int32
 }
