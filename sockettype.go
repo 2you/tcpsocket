@@ -26,6 +26,7 @@ type ServerSocket struct {
 
 //tcp客户端结构体
 type ClientSocket struct {
+	wbLock           sync.Mutex
 	active           bool
 	action           SocketAction
 	host             string

@@ -120,7 +120,7 @@ func (this *ClientSocket) readHead() (buf []byte, err error) {
 	return this.readBuf(headSize)
 }
 
-func (this *ClientSocket) getBodySize(headBuf []byte) (size uint64, err error) {
+func (this *ClientSocket) GetBodySize(headBuf []byte) (size uint64, err error) {
 	headSize := this.action.GetHeadSize()
 	if headSize != len(headBuf) {
 		return 0, fmt.Errorf("head buf size if error")
@@ -160,7 +160,7 @@ func (this *ClientSocket) getBodySize(headBuf []byte) (size uint64, err error) {
 }
 
 func (this *ClientSocket) readBody(headBuf []byte) (buf []byte, err error) {
-	bodySize, err := this.getBodySize(headBuf)
+	bodySize, err := this.GetBodySize(headBuf)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +243,8 @@ func (this *ClientSocket) WriteBuf(buf []byte) error {
 }
 
 func (this *ClientSocket) write(buf []byte, size int) error {
+	this.wbLock.Lock()
+	defer this.wbLock.Unlock()
 	if buf == nil {
 		return fmt.Errorf("write buf can not null")
 	}
@@ -255,13 +257,22 @@ func (this *ClientSocket) write(buf []byte, size int) error {
 		return fmt.Errorf("pending write size %d less than actual size %d", bufSize, size)
 	}
 	wBuf := buf[:size]
-	wSize, err := this.socket.Write(wBuf)
-	if err != nil {
-		return err
-	}
+	for idx := 0; idx < size; {
+		wPos := idx + 512
+		if wPos > size {
+			wPos = size
+		}
+		currSize := wPos - idx
+		wSize, err := this.socket.Write(wBuf[idx:wPos])
+		if err != nil {
+			debugln(idx, wPos, currSize, err)
+			return err
+		}
 
-	if wSize != size {
-		return fmt.Errorf("pending write %d bytes, actual write %d bytes", size, wSize)
+		if wSize != currSize {
+			return fmt.Errorf("pending write %d bytes, actual write %d bytes", currSize, wSize)
+		}
+		idx = wPos
 	}
 	return nil
 }
