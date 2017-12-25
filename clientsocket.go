@@ -172,20 +172,26 @@ func BytesCombine(pBytes ...[]byte) []byte {
 }
 
 func (this *ClientSocket) readData() (buf []byte, err error) {
-	if buf, err = this.readHead(); err != nil {
-		return nil, err
-	}
-	headBuf := buf
-	if buf, err = this.readBody(headBuf); err != nil {
+	headBuf, err := this.readHead()
+	if err != nil {
 		return nil, err
 	}
 
-	if buf == nil {
+	bodyBuf, err := this.readBody(headBuf)
+	if err != nil {
+		return nil, err
+	}
+
+	if bodyBuf == nil {
 		return headBuf, nil
 	} else {
-		return func(v ...[]byte) []byte {
+		buf = func(v ...[]byte) []byte {
 			return bytes.Join(v, []byte(``))
-		}(headBuf, buf), nil
+		}(headBuf, bodyBuf)
+
+		headBuf = nil
+		bodyBuf = nil
+		return buf, nil
 	}
 }
 

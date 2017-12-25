@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"runtime"
 
 	"github.com/2you/tcpsocket"
 )
@@ -43,7 +42,7 @@ func (this *SocketActionA) OnRead(client *tcpsocket.ClientSocket, data []byte) {
 	} else {
 		log.Printf("write %d bytes to [%s] error [%s]", size, rmAddr, err.Error())
 	}
-	runtime.GC()
+	data = nil
 }
 
 func (this *SocketActionA) OnConnect(client *tcpsocket.ClientSocket) {
