@@ -257,22 +257,30 @@ func (this *ClientSocket) write(buf []byte, size int) error {
 		return fmt.Errorf("pending write size %d less than actual size %d", bufSize, size)
 	}
 	wBuf := buf[:size]
-	for idx := 0; idx < size; {
-		wPos := idx + 512
-		if wPos > size {
-			wPos = size
-		}
-		currSize := wPos - idx
-		wSize, err := this.socket.Write(wBuf[idx:wPos])
-		if err != nil {
-			debugln(idx, wPos, currSize, err)
-			return err
-		}
-
-		if wSize != currSize {
-			return fmt.Errorf("pending write %d bytes, actual write %d bytes", currSize, wSize)
-		}
-		idx = wPos
+	wSize, err := this.socket.Write(wBuf)
+	if err != nil {
+		return err
 	}
+
+	if wSize != size {
+		return fmt.Errorf("pending write %d bytes, actual write %d bytes", size, wSize)
+	}
+	//	for idx := 0; idx < size; {
+	//		wPos := idx + 512
+	//		if wPos > size {
+	//			wPos = size
+	//		}
+	//		currSize := wPos - idx
+	//		wSize, err := this.socket.Write(wBuf[idx:wPos])
+	//		if err != nil {
+	//			debugln(idx, wPos, currSize, err)
+	//			return err
+	//		}
+
+	//		if wSize != currSize {
+	//			return fmt.Errorf("pending write %d bytes, actual write %d bytes", currSize, wSize)
+	//		}
+	//		idx = wPos
+	//	}
 	return nil
 }
