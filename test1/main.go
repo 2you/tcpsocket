@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"runtime"
+	"sync"
 
 	"github.com/2you/tcpsocket"
 )
@@ -27,5 +29,8 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
+	log.Println(runtime.GOOS)
+
 	<-wait
 }
