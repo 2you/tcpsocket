@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/2you/gfunc"
 )
 
 func NewClient() *ClientSocket {
@@ -187,12 +189,7 @@ func (this *ClientSocket) readData() (buf []byte, err error) {
 	if bodyBuf == nil {
 		return headBuf, nil
 	} else {
-		buf = func(v ...[]byte) []byte {
-			return bytes.Join(v, nil)
-		}(headBuf, bodyBuf)
-
-		headBuf = nil
-		bodyBuf = nil
+		buf = gfunc.BytesMerge(headBuf, bodyBuf)
 		return buf, nil
 	}
 }

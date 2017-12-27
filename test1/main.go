@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"runtime"
 
+	"github.com/2you/gfunc"
 	"github.com/2you/tcpsocket"
 )
 
@@ -20,10 +21,18 @@ func main() {
 		buf1[i] = byte(i + 1)
 	}
 	log.Println(buf1[4:5])
-
 	go func() {
 		http.ListenAndServe(":12346", nil)
 	}()
+
+	//	var buf2 []byte
+	buf2 := make([]byte, 10)
+	idx := copy(buf2, buf1)
+	copy(buf2[idx:], buf1)
+	log.Println(buf2)
+
+	buf3 := gfunc.BytesMerge(buf1, buf2)
+	log.Println(buf3)
 
 	wait := make(chan byte)
 	server = tcpsocket.NewServer()
