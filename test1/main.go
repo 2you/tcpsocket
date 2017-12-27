@@ -31,8 +31,12 @@ func main() {
 	copy(buf2[idx:], buf1)
 	log.Println(buf2)
 
-	buf3 := gfunc.BytesMerge(buf1, buf2)
+	buf3 := gfunc.BytesMerge(&buf1, &buf2, nil, &buf1)
 	log.Println(buf3)
+
+	buf4 := make([]byte, 3, 10)
+	log.Println(len(buf4), cap(buf4))
+	log.Println(buf4)
 
 	wait := make(chan byte)
 	server = tcpsocket.NewServer()

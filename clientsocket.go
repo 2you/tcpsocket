@@ -100,7 +100,7 @@ func (this *ClientSocket) stopReadThread() {
 	this.readThreadActive = false
 }
 
-func (this *ClientSocket) readBuf(count uint64) (buf []byte, err error) {
+func (this *ClientSocket) readBuf(count uint64) (buf *[]byte, err error) {
 	var (
 		allSize  uint64
 		currSize int
@@ -108,18 +108,18 @@ func (this *ClientSocket) readBuf(count uint64) (buf []byte, err error) {
 	if count < 1 {
 		return nil, nil
 	}
-	buf = make([]byte, count)
+	ret := make([]byte, count)
 	allSize = 0
 	for allSize < count {
-		if currSize, err = this.socket.Read(buf[allSize:count]); err != nil {
+		if currSize, err = this.socket.Read(ret[allSize:count]); err != nil {
 			return nil, err
 		}
 		allSize += uint64(currSize)
 	}
-	return buf, nil
+	return &ret, nil
 }
 
-func (this *ClientSocket) readHead() (buf []byte, err error) {
+func (this *ClientSocket) readHead() (buf *[]byte, err error) {
 	headSize := uint64(this.action.GetHeadSize())
 	return this.readBuf(headSize)
 }
@@ -132,7 +132,7 @@ func (this *ClientSocket) GetBodySize(headBuf []byte) (size uint64, err error) {
 	lob := this.action.LittleOrBig()
 	iBit := this.action.GetBodySizeLength()
 	offSet := this.action.GetBodySizeOffSet()
-	sizeBuf := headBuf[offSet:]
+	sizeBuf := (headBuf)[offSet:]
 	var bodySize uint64
 	if lob == 'L' {
 		switch iBit {
@@ -163,7 +163,7 @@ func (this *ClientSocket) GetBodySize(headBuf []byte) (size uint64, err error) {
 	return bodySize, nil
 }
 
-func (this *ClientSocket) readBody(headBuf []byte) (buf []byte, err error) {
+func (this *ClientSocket) readBody(headBuf []byte) (buf *[]byte, err error) {
 	bodySize, err := this.GetBodySize(headBuf)
 	if err != nil {
 		return nil, err
@@ -175,18 +175,18 @@ func BytesCombine(pBytes ...[]byte) []byte {
 	return bytes.Join(pBytes, []byte(""))
 }
 
-func (this *ClientSocket) readData() (buf []byte, err error) {
+func (this *ClientSocket) readData() (buf *[]byte, err error) {
 	headBuf, err := this.readHead()
 	if err != nil {
 		return nil, err
 	}
 
-	bodyBuf, err := this.readBody(headBuf)
+	bodyBuf, err := this.readBody(*headBuf)
 	if err != nil {
 		return nil, err
 	}
 
-	if bodyBuf == nil {
+	if bodyBuf == nil || *bodyBuf == nil {
 		return headBuf, nil
 	} else {
 		buf = gfunc.BytesMerge(headBuf, bodyBuf)
@@ -214,7 +214,7 @@ func (this *ClientSocket) handleOnRead(data []byte) {
 func (this *ClientSocket) threadHandleRead() {
 	var (
 		err  error = nil
-		data []byte
+		data *[]byte
 	)
 	defer this.handleOnDisconnect(err)
 	this.handleOnConnect()
@@ -228,7 +228,7 @@ func (this *ClientSocket) threadHandleRead() {
 		if data, err = this.readData(); err != nil {
 			break
 		}
-		this.handleOnRead(data)
+		this.handleOnRead(*data)
 	}
 }
 
@@ -272,30 +272,30 @@ func (this *ClientSocket) write(buf []byte, size int) error {
 		return fmt.Errorf("pending write size %d less than actual size %d", bufSize, size)
 	}
 	wBuf := buf[:size]
-	wSize, err := this.socket.Write(wBuf)
-	if err != nil {
-		return err
-	}
-
-	if wSize != size {
-		return fmt.Errorf("pending write %d bytes, actual write %d bytes", size, wSize)
-	}
-	//	for idx := 0; idx < size; {
-	//		wPos := idx + 512
-	//		if wPos > size {
-	//			wPos = size
-	//		}
-	//		currSize := wPos - idx
-	//		wSize, err := this.socket.Write(wBuf[idx:wPos])
-	//		if err != nil {
-	//			debugln(idx, wPos, currSize, err)
-	//			return err
-	//		}
-
-	//		if wSize != currSize {
-	//			return fmt.Errorf("pending write %d bytes, actual write %d bytes", currSize, wSize)
-	//		}
-	//		idx = wPos
+	//	wSize, err := this.socket.Write(wBuf)
+	//	if err != nil {
+	//		return err
 	//	}
+
+	//	if wSize != size {
+	//		return fmt.Errorf("pending write %d bytes, actual write %d bytes", size, wSize)
+	//	}
+	for idx := 0; idx < size; {
+		wPos := idx + 512
+		if wPos > size {
+			wPos = size
+		}
+		currSize := wPos - idx
+		wSize, err := this.socket.Write(wBuf[idx:wPos])
+		if err != nil {
+			debugln(idx, wPos, currSize, err)
+			return err
+		}
+
+		if wSize != currSize {
+			return fmt.Errorf("pending write %d bytes, actual write %d bytes", currSize, wSize)
+		}
+		idx = wPos
+	}
 	return nil
 }
