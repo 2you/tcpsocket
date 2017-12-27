@@ -12,7 +12,7 @@ import (
 type SocketActionA struct {
 	tcpsocket.SocketAction
 	clientMap map[*tcpsocket.ClientSocket]*TestClient
-	mutex     sync.RWMutex
+	mutex     sync.Mutex
 }
 
 func NewSocketActionA() tcpsocket.SocketAction {
@@ -49,10 +49,15 @@ func (this *SocketActionA) OnRead(client *tcpsocket.ClientSocket, data []byte) {
 	//		log.Printf("write %d bytes to [%s] error [%s]\n", size, rmAddr, err.Error())
 	//	}
 	//	data = nil
-	this.mutex.RLock()
+	this.mutex.Lock()
 	testcl := this.clientMap[client]
-	this.mutex.RUnlock()
-	testcl.ReadTest(data)
+	this.mutex.Unlock()
+
+	if testcl != nil {
+		testcl.ReadTest(data)
+	} else {
+		log.Printf("[%s] deleted\n", client.RemoteAddr())
+	}
 }
 
 func (this *SocketActionA) OnConnect(client *tcpsocket.ClientSocket) {
