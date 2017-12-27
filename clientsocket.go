@@ -34,6 +34,10 @@ func ClientTo(host string, port uint, action SocketAction) (client *ClientSocket
 	return client, nil
 }
 
+func (this *ClientSocket) Active() bool {
+	return this.active
+}
+
 func (this *ClientSocket) SetAction(act SocketAction) {
 	this.action = act
 }
@@ -54,7 +58,6 @@ func (this *ClientSocket) accept(tcpconn *net.TCPConn, act SocketAction) error {
 func (this *ClientSocket) open(tcpconn *net.TCPConn, act SocketAction) error {
 	this.action = act
 	this.socket = tcpconn
-	this.active = true
 	this.connectTime = time.Now()
 	this.startReadThread()
 	return nil
@@ -189,17 +192,19 @@ func (this *ClientSocket) readData() (buf *[]byte, err error) {
 	if bodyBuf == nil || *bodyBuf == nil {
 		return headBuf, nil
 	} else {
-		buf = gfunc.BytesMerge(headBuf, bodyBuf)
-		return buf, nil
+		data := gfunc.BytesMerge(*headBuf, *bodyBuf)
+		return &data, nil
 	}
 }
 
 func (this *ClientSocket) handleOnConnect() {
+	this.active = true
 	go this.action.OnConnect(this)
 }
 
 func (this *ClientSocket) handleOnDisconnect(err error) {
 	this.Close()
+	this.active = false
 	this.action.OnDisconnect(this, err)
 }
 
