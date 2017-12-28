@@ -103,13 +103,13 @@ func (this *TestClient) WriteTest() {
 		}
 
 		if this.isWait {
-			time.Sleep(time.Second)
+			time.Sleep(time.Second * 3)
 			this.waitSec++
 			if this.waitSec > 60 {
-				log.Println("[%s] wait id %d greater than %d sec\n", this.client.RemoteAddr(), this.currIdx, this.waitSec)
+				log.Printf("[%s] wait id %d greater than %d sec\n", this.client.RemoteAddr(), this.currIdx, this.waitSec)
 				if this.waitSec > 180 {
 					this.client.Close()
-					log.Println("[%s] wait id %d greater than %d sec [manual close client]\n",
+					log.Printf("[%s] wait id %d greater than %d sec [manual close client]\n",
 						this.client.RemoteAddr(), this.currIdx, this.waitSec)
 					return
 				}
